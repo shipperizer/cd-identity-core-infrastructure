@@ -2,7 +2,10 @@ data "template_file" "nodes" {
   template = file("${path.module}/scripts/nodes.yaml")
 
   vars = {
-    https_proxy = "${var.https_proxy}"
+    https_proxy = var.https_proxy
+    no_proxy = data.openstack_networking_subnet_v2.subnet.cidr
+    service_cidr = "10.152.183.0/24"
+    pod_cidr = "10.1.0.0/16"
   }
 }
 
