@@ -3,3 +3,4 @@
 runcmd:
   - sudo snap install k8s --edge --classic
   - echo HTTPS_PROXY=${https_proxy} | sudo tee -a /etc/environment
+  - echo NO_PROXY=${no_proxy},localhost,127.0.0.1,0.0.0.0,ppa.launchpad.net,launchpad.net,${service_cidr},${pod_cidr} | sudo tee -a /etc/environment
