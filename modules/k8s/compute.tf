@@ -140,7 +140,7 @@ resource "terraform_data" "join_controls" {
 
   connection {
     user        = "ubuntu"
-    host        = self.access_ip_v4
+    host        = openstack_compute_instance_v2.leader.access_ip_v4
     private_key = openstack_compute_keypair_v2.keypair.private_key
   }
 
@@ -163,7 +163,7 @@ resource "terraform_data" "join_workers" {
 
   connection {
     user        = "ubuntu"
-    host        = self.access_ip_v4
+    host        = openstack_compute_instance_v2.leader.access_ip_v4
     private_key = openstack_compute_keypair_v2.keypair.private_key
   }
 
