@@ -45,7 +45,7 @@ data "template_cloudinit_config" "k8s_leader" {
     content_type = "text/cloud-config"
     content      = data.template_file.nodes.rendered
   }
-  
+
   part {
     filename   = "leader.cfg"
     merge_type = "list(append)+dict(recurse_array)+str()"
