@@ -7,7 +7,7 @@ data "template_cloudinit_config" "k8s" {
     merge_type = "list(append)+dict(recurse_array)+str()"
 
     content_type = "text/cloud-config"
-    content      = data.template_file.nodes.rendered
+    content      = file("${path.module}/scripts/nodes.yaml")
   }
 }
 
