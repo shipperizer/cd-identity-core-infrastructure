@@ -1,7 +1,7 @@
 #cloud-config
 
 runcmd:
-  - snap install k8s --edge --
+  - snap install k8s --edge --classic
 
 write_files:
 - content: |
