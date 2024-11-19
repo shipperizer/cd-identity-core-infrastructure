@@ -1,0 +1,5 @@
+#cloud-config
+
+runcmd:
+  - sudo snap install k8s --edge --classic
+  - echo HTTPS_PROXY=${https_proxy} | sudo tee -a /etc/environment

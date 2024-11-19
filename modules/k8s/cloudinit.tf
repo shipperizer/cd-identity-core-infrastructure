@@ -1,5 +1,5 @@
-data "template_file" "proxy" {
-  template = file("${path.module}/scripts/proxy.sh")
+data "template_file" "nodes" {
+  template = file("${path.module}/scripts/nodes.yaml")
 
   vars = {
     https_proxy = "${var.https_proxy}"
@@ -11,10 +11,11 @@ data "template_cloudinit_config" "k8s" {
   base64_encode = false
 
   part {
-    filename     = "install.sh"
-    content_type = "text/x-shellscript"
+    filename   = "nodes.cfg"
+    merge_type = "list(append)+dict(recurse_array)+str()"
 
-    content = file("${path.module}/scripts/install.sh")
+    content_type = "text/cloud-config"
+    content      = data.template_file.nodes.rendered
   }
 }
 
@@ -24,26 +25,19 @@ data "template_cloudinit_config" "k8s_leader" {
   base64_encode = false
 
   part {
-    filename     = "install.sh"
-    content_type = "text/x-shellscript"
+    filename   = "nodes.cfg"
+    merge_type = "list(append)+dict(recurse_array)+str()"
 
-    content = file("${path.module}/scripts/install.sh")
+    content_type = "text/cloud-config"
+    content      = data.template_file.nodes.rendered
   }
 
   part {
-    filename     = "proxy.sh"
-    content_type = "text/x-shellscript"
+    filename   = "leader.cfg"
+    merge_type = "list(append)+dict(recurse_array)+str()"
 
-    content = data.template_file.proxy.rendered
-  }
-
-
-
-  part {
-    filename     = "bootstrap.sh"
-    content_type = "text/x-shellscript"
-
-    content = file("${path.module}/scripts/bootstrap.sh")
+    content_type = "text/cloud-config"
+    content      = file("${path.module}/scripts/leader.yaml")
   }
 }
 
