@@ -8,18 +8,6 @@ data "openstack_images_image_v2" "ubuntu" {
   most_recent = true
 }
 
-data "template_file" "proxy" {
-  template = file("${path.module}/scripts/http-proxy.conf")
-
-  vars = {
-    https_proxy  = var.https_proxy
-    http_proxy   = var.http_proxy
-    no_proxy     = data.openstack_networking_subnet_v2.subnet.cidr
-    service_cidr = "10.152.183.0/24"
-    pod_cidr     = "10.1.0.0/16"
-  }
-}
-
 resource "openstack_compute_instance_v2" "leader" {
   name      = "k8s-leader"
   image_id  = data.openstack_images_image_v2.ubuntu.id
@@ -43,11 +31,6 @@ resource "openstack_compute_instance_v2" "leader" {
     user        = "ubuntu"
     host        = self.access_ip_v4
     private_key = openstack_compute_keypair_v2.keypair.private_key
-  }
-
-  provisioner "file" {
-    content     = data.template_file.proxy.rendered
-    destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
   }
 
   provisioner "file" {
@@ -82,16 +65,6 @@ resource "openstack_compute_instance_v2" "control" {
 
   user_data = data.template_cloudinit_config.k8s.rendered
 
-  connection {
-    user        = "ubuntu"
-    host        = self.access_ip_v4
-    private_key = openstack_compute_keypair_v2.keypair.private_key
-  }
-
-  provisioner "file" {
-    content     = data.template_file.proxy.rendered
-    destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
-  }
 }
 
 
@@ -117,17 +90,6 @@ resource "openstack_compute_instance_v2" "worker" {
   }
 
   user_data = data.template_cloudinit_config.k8s.rendered
-
-  connection {
-    user        = "ubuntu"
-    host        = self.access_ip_v4
-    private_key = openstack_compute_keypair_v2.keypair.private_key
-  }
-
-  provisioner "file" {
-    content     = data.template_file.proxy.rendered
-    destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
-  }
 }
 
 
