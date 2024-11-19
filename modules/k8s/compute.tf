@@ -39,10 +39,17 @@ resource "openstack_compute_instance_v2" "leader" {
     uuid = data.openstack_networking_network_v2.network.id
   }
 
+  connection {
+    user        = "ubuntu"
+    host        = self.access_ip_v4
+    private_key = openstack_compute_keypair_v2.keypair.private_key
+  }
+
   provisioner "file" {
     content     = data.template_file.proxy.rendered
     destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
   }
+
   provisioner "file" {
     source      = local_sensitive_file.keypair.filename
     destination = "/tmp/keypair"
@@ -75,6 +82,12 @@ resource "openstack_compute_instance_v2" "control" {
 
   user_data = data.template_cloudinit_config.k8s.rendered
 
+  connection {
+    user        = "ubuntu"
+    host        = self.access_ip_v4
+    private_key = openstack_compute_keypair_v2.keypair.private_key
+  }
+
   provisioner "file" {
     content     = data.template_file.proxy.rendered
     destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
@@ -104,6 +117,12 @@ resource "openstack_compute_instance_v2" "worker" {
   }
 
   user_data = data.template_cloudinit_config.k8s.rendered
+
+  connection {
+    user        = "ubuntu"
+    host        = self.access_ip_v4
+    private_key = openstack_compute_keypair_v2.keypair.private_key
+  }
 
   provisioner "file" {
     content     = data.template_file.proxy.rendered
