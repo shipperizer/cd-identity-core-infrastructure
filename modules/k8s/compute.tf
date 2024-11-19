@@ -43,8 +43,6 @@ resource "openstack_compute_instance_v2" "leader" {
 
 
 resource "openstack_compute_instance_v2" "control" {
-  depends_on = [openstack_compute_instance_v2.leader]
-
   count     = var.controls
   name      = "k8s-control-${count.index}"
   image_id  = data.openstack_images_image_v2.ubuntu.id
@@ -69,8 +67,6 @@ resource "openstack_compute_instance_v2" "control" {
 
 
 resource "openstack_compute_instance_v2" "worker" {
-  depends_on = [openstack_compute_instance_v2.leader]
-
   count     = var.workers
   name      = "k8s-worker-${count.index}"
   image_id  = data.openstack_images_image_v2.ubuntu.id
