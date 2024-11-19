@@ -135,16 +135,21 @@ resource "openstack_compute_instance_v2" "worker" {
 resource "terraform_data" "join_controls" {
   count = var.workers
 
-  depends_on = [local_sensitive_file.keypair]
-
   # Replacement of any instance of the cluster requires re-provisioning
   triggers_replace = openstack_compute_instance_v2.control[*].id
+
+  connection {
+    user        = "ubuntu"
+    host        = self.access_ip_v4
+    private_key = openstack_compute_keypair_v2.keypair.private_key
+  }
 
   provisioner "remote-exec" {
     inline = [
       "sudo cloud-init status --wait",
       "TOKEN=$(sudo k8s get-join-token ${openstack_compute_instance_v2.control[count.index].name})",
       "echo $TOKEN",
+      "ssh -oStrictHostKeyChecking=no -i /tmp/keypair ubuntu@${openstack_compute_instance_v2.control[count.index].access_ip_v4} sudo cloud-init status --wait",
       "ssh -oStrictHostKeyChecking=no -i /tmp/keypair ubuntu@${openstack_compute_instance_v2.control[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN"
     ]
   }
@@ -153,16 +158,21 @@ resource "terraform_data" "join_controls" {
 resource "terraform_data" "join_workers" {
   count = var.workers
 
-  depends_on = [local_sensitive_file.keypair]
-
   # Replacement of any instance of the cluster requires re-provisioning
   triggers_replace = openstack_compute_instance_v2.worker[*].id
+
+  connection {
+    user        = "ubuntu"
+    host        = self.access_ip_v4
+    private_key = openstack_compute_keypair_v2.keypair.private_key
+  }
 
   provisioner "remote-exec" {
     inline = [
       "sudo cloud-init status --wait",
       "TOKEN=$(sudo k8s get-join-token ${openstack_compute_instance_v2.worker[count.index].name} --worker)",
       "echo $TOKEN",
+      "ssh -oStrictHostKeyChecking=no -i /tmp/keypair ubuntu@${openstack_compute_instance_v2.worker[count.index].access_ip_v4} sudo cloud-init status --wait",
       "ssh -oStrictHostKeyChecking=no -i /tmp/keypair ubuntu@${openstack_compute_instance_v2.worker[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN"
     ]
   }
