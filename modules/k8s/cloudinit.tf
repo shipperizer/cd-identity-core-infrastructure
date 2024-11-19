@@ -1,14 +1,3 @@
-data "template_file" "nodes" {
-  template = file("${path.module}/scripts/nodes.yaml")
-
-  vars = {
-    https_proxy = var.https_proxy
-    no_proxy = data.openstack_networking_subnet_v2.subnet.cidr
-    service_cidr = "10.152.183.0/24"
-    pod_cidr = "10.1.0.0/16"
-  }
-}
-
 data "template_cloudinit_config" "k8s" {
   gzip          = false
   base64_encode = false
@@ -32,7 +21,7 @@ data "template_cloudinit_config" "k8s_leader" {
     merge_type = "list(append)+dict(recurse_array)+str()"
 
     content_type = "text/cloud-config"
-    content      = data.template_file.nodes.rendered
+    content      = file("${path.module}/scripts/nodes.yaml")
   }
 
   part {

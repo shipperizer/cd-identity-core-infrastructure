@@ -8,6 +8,18 @@ data "openstack_images_image_v2" "ubuntu" {
   most_recent = true
 }
 
+data "template_file" "proxy" {
+  template = file("${path.module}/scripts/http-proxy.conf")
+
+  vars = {
+    https_proxy  = var.https_proxy
+    http_proxy   = var.http_proxy
+    no_proxy     = data.openstack_networking_subnet_v2.subnet.cidr
+    service_cidr = "10.152.183.0/24"
+    pod_cidr     = "10.1.0.0/16"
+  }
+}
+
 resource "openstack_compute_instance_v2" "leader" {
   name      = "k8s-leader"
   image_id  = data.openstack_images_image_v2.ubuntu.id
@@ -25,6 +37,15 @@ resource "openstack_compute_instance_v2" "leader" {
 
   network {
     uuid = data.openstack_networking_network_v2.network.id
+  }
+
+  provisioner "file" {
+    content     = data.template_file.proxy.rendered
+    destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
+  }
+  provisioner "file" {
+    source      = local_sensitive_file.keypair.filename
+    destination = "/tmp/keypair"
   }
 }
 
@@ -54,6 +75,10 @@ resource "openstack_compute_instance_v2" "control" {
 
   user_data = data.template_cloudinit_config.k8s.rendered
 
+  provisioner "file" {
+    content     = data.template_file.proxy.rendered
+    destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
+  }
 }
 
 
@@ -79,28 +104,70 @@ resource "openstack_compute_instance_v2" "worker" {
   }
 
   user_data = data.template_cloudinit_config.k8s.rendered
+
+  provisioner "file" {
+    content     = data.template_file.proxy.rendered
+    destination = "/etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf"
+  }
 }
 
 
 
+# resource "terraform_data" "join_controls" {
+#   count = var.controls
+
+#   depends_on = [local_sensitive_file.keypair]
+
+#   # Replacement of any instance of the cluster requires re-provisioning
+#   triggers_replace = openstack_compute_instance_v2.control[*].id
+
+#   provisioner "local-exec" {
+#     command = <<EOT
+#       ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo cloud-init status --wait
+#       TOKEN=$(ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo k8s get-join-token ${openstack_compute_instance_v2.control[count.index].name})
+#       echo $TOKEN
+#       ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.control[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN
+#     EOT
+#   }
+# }
+
+
+# resource "terraform_data" "join_workers" {
+#   count = var.workers
+
+#   depends_on = [local_sensitive_file.keypair]
+
+#   # Replacement of any instance of the cluster requires re-provisioning
+#   triggers_replace = openstack_compute_instance_v2.worker[*].id
+
+#   provisioner "local-exec" {
+#     command = <<EOT
+#       ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo cloud-init status --wait
+#       TOKEN=$(ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo k8s get-join-token ${openstack_compute_instance_v2.worker[count.index].name} --worker)
+#       echo $TOKEN
+#       ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.worker[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN
+#     EOT
+#   }
+# }
+
+
 resource "terraform_data" "join_controls" {
-  count = var.controls
+  count = var.workers
 
   depends_on = [local_sensitive_file.keypair]
 
   # Replacement of any instance of the cluster requires re-provisioning
   triggers_replace = openstack_compute_instance_v2.control[*].id
 
-  provisioner "local-exec" {
-    command = <<EOT
-      ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo cloud-init status --wait
-      TOKEN=$(ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo k8s get-join-token ${openstack_compute_instance_v2.control[count.index].name})
-      echo $TOKEN
-      ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.control[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN
-    EOT
+  provisioner "remote-exec" {
+    inline = [
+      "sudo cloud-init status --wait",
+      "TOKEN=$(sudo k8s get-join-token ${openstack_compute_instance_v2.control[count.index].name})",
+      "echo $TOKEN",
+      "ssh -oStrictHostKeyChecking=no -i /tmp/keypair ubuntu@${openstack_compute_instance_v2.control[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN"
+    ]
   }
 }
-
 
 resource "terraform_data" "join_workers" {
   count = var.workers
@@ -110,12 +177,12 @@ resource "terraform_data" "join_workers" {
   # Replacement of any instance of the cluster requires re-provisioning
   triggers_replace = openstack_compute_instance_v2.worker[*].id
 
-  provisioner "local-exec" {
-    command = <<EOT
-      ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo cloud-init status --wait
-      TOKEN=$(ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo k8s get-join-token ${openstack_compute_instance_v2.worker[count.index].name} --worker)
-      echo $TOKEN
-      ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.worker[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN
-    EOT
+  provisioner "remote-exec" {
+    inline = [
+      "sudo cloud-init status --wait",
+      "TOKEN=$(sudo k8s get-join-token ${openstack_compute_instance_v2.worker[count.index].name} --worker)",
+      "echo $TOKEN",
+      "ssh -oStrictHostKeyChecking=no -i /tmp/keypair ubuntu@${openstack_compute_instance_v2.worker[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN"
+    ]
   }
 }
