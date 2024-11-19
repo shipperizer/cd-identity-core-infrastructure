@@ -93,7 +93,7 @@ resource "terraform_data" "join_controls" {
 
   provisioner "local-exec" {
     command = <<EOT
-      sudo cloud-init status --wait
+      ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo cloud-init status --wait
       TOKEN=$(ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo k8s get-join-token ${openstack_compute_instance_v2.control[count.index].name})
       ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.control[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN
     EOT
@@ -111,7 +111,7 @@ resource "terraform_data" "join_workers" {
 
   provisioner "local-exec" {
     command = <<EOT
-      sudo cloud-init status --wait
+      ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo cloud-init status --wait
       TOKEN=$(ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.leader.access_ip_v4} sudo k8s get-join-token ${openstack_compute_instance_v2.worker[count.index].name} --worker)
       ssh -oStrictHostKeyChecking=no -i ${local_sensitive_file.keypair.filename} ubuntu@${openstack_compute_instance_v2.worker[count.index].access_ip_v4} sudo k8s join-cluster $TOKEN
     EOT
