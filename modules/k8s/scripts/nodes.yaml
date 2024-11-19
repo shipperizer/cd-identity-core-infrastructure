@@ -4,6 +4,6 @@ runcmd:
   - sudo snap install k8s --edge --classic
 
 write_files:
-- content: |
+- path: /etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf
+  content: |
     ${http_proxy_file}
-  path: /etc/systemd/system/snap.k8s.containerd.service.d/http-proxy.conf
